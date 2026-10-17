@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>/dev/null wrapped</title>
+<meta name="description" content="Your /dev/null in one card: commits, stars, your best commit, the hour you ship. Type a username, get a PNG.">
+<meta property="og:title" content="/dev/null wrapped">
+<meta property="og:description" content="Your /dev/null in one card. Type a username, get a PNG.">
+<meta property="og:image" content="https://renaissancexbt.github.io/devnull-wrapped/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root { --bg:#0e0e11; --panel:#16161b; --line:#2a2a33; --ink:#f2f2f4; --dim:#8b8b97; --pink:#f0679a; --pink2:#ff9ec0; }
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: Inter, system-ui, sans-serif; }
+a { color: var(--pink2); }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 28px 20px 40px; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 22px; }
+h1 { margin: 0; font: 800 28px/1.1 'JetBrains Mono', ui-monospace, monospace; letter-spacing: -0.5px; }
+h1 b { color: var(--pink); }
+header p { margin: 0; color: var(--dim); font-size: 15px; }
+form { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.field { flex: 1 1 280px; display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0 14px; font: 16px 'JetBrains Mono', ui-monospace, monospace; }
+.field span { color: var(--dim); }
+.field input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--ink); font: inherit; padding: 14px 4px; }
+button, .btn { appearance: none; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: 600 15px Inter, system-ui, sans-serif; padding: 12px 18px; border-radius: 12px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+button.primary { background: var(--pink); border-color: var(--pink); color: #1a0710; }
+button:disabled { opacity: .5; cursor: wait; }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
+.actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.status { color: var(--dim); font: 14px 'JetBrains Mono', ui-monospace, monospace; min-height: 20px; margin: 4px 0 14px; }
+.status.err { color: #ff7b7b; }
+footer { color: var(--dim); font-size: 13px; margin-top: 28px; line-height: 1.6; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>/dev/null <b>wrapped</b></h1>
+    <p>your <a href="https://dev-null.sh" target="_blank" rel="noopener">/dev/null</a> in one card</p>
+  </header>
+
+  <form id="form">
+    <label class="field"><span>dev-null.sh/@</span><input id="user" autocomplete="off" spellcheck="false" placeholder="username" aria-label="username"></label>
+    <button class="primary" id="go" type="submit">git wrap</button>
+  </form>
+  <div class="status" id="status">type a username and hit enter</div>
+
+  <div class="stage hidden" id="stage">
+    <canvas id="card" width="1200" height="675" aria-label="wrapped card"></canvas>
+  </div>
+  <div class="actions hidden" id="actions">
+    <button id="dl">⬇ Download PNG</button>
+    <button id="copy">⧉ Copy image</button>
+    <a class="btn" id="tweet" target="_blank" rel="noopener">Share on X</a>
+    <button id="link">🔗 Copy link</button>
+  </div>
+
+  <footer>
+    Runs in your browser on the public <a href="https://dev-null.sh" target="_blank" rel="noopener">dev-null.sh</a> API. Nothing is stored.
+    Not affiliated with /dev/null. Source: <a href="https://github.com/Renaissancexbt/devnull-wrapped" target="_blank" rel="noopener">github.com/Renaissancexbt/devnull-wrapped</a>
+  </footer>
+</div>
+
+<script>
+"use strict";
+const API = (window.DEVNULL_API || "https://dev-null.sh") + "/api/v1";
+const $ = (id) => document.getElementById(id);
+const C = { bg: "#0e0e11", panel: "#17171c", line: "#2a2a33", ink: "#f2f2f4", dim: "#8b8b97", pink: "#f0679a", pink2: "#ff9ec0", faint: "#24242c" };
+const MONO = "'JetBrains Mono', ui-monospace, monospace", SANS = "Inter, system-ui, sans-serif";
+let current = null;
+
+// ---------- data ----------
+async function getJSON(url) {
+  const r = await fetch(url, { headers: { Accept: "application/json" } });
+  if (r.status === 404) throw new Error("no such user on /dev/null");
+  if (r.status === 429) throw new Error("rate limited by /dev/null, try again in a minute");
+  if (!r.ok) throw new Error(`/dev/null answered ${r.status}`);
+  return r.json();
+}
+async function fetchAll(username, onPage) {
+  const user = (await getJSON(`${API}/users/${encodeURIComponent(username)}`)).data;
+  const commits = [];
+  let url = `${API}/users/${encodeURIComponent(username)}/commits`;
+  for (let page = 0; url && page < 40; page++) {
+    const j = await getJSON(url);
+    commits.push(...(j.data || []));
+    onPage && onPage(commits.length);
+    const next = j.meta && j.meta.next_cursor;
+    url = j.links && j.links.next ? j.links.next : (next ? `${API}/users/${encodeURIComponent(username)}/commits?cursor=${encodeURIComponent(next)}` : null);
+  }
+  return { user, commits };
+}
+
+// ---------- stats ----------
+const STOP = new Set("the a an and or but if then of to in on at for with from by is are was were be been it its this that these those i im i'm you your we our they them he she my me so just not no yes do does did have has had will can could would should about what when where how why who all any some more most very really too also out up down over into than as like get got go going gonna one two new now today tonight time still even here there lol yeah ok okay thanks thank please let lets let's make made want need know think dont don't can't cant it's that's what's there's i've i'll you're we're".split(" "));
+function stats({ user, commits }) {
+  const posts = commits.filter((c) => !c.parent_id), replies = commits.filter((c) => c.parent_id);
+  const stars = commits.reduce((s, c) => s + (c.stars_count || 0), 0);
+  const repliesIn = commits.reduce((s, c) => s + (c.replies_count || 0), 0);
+  const best = [...commits].sort((a, b) => (b.stars_count || 0) - (a.stars_count || 0) || (b.replies_count || 0) - (a.replies_count || 0))[0] || null;
+  const hours = new Array(24).fill(0);
+  const days = new Map();
+  for (const c of commits) {
+    const d = new Date(c.created_at);
+    hours[d.getHours()]++;
+    const key = d.toISOString().slice(0, 10);
+    days.set(key, (days.get(key) || 0) + 1);
+  }
+  const peak = hours.indexOf(Math.max(...hours));
+  const words = new Map();
+  for (const c of commits) {
+    const text = (c.body || "").toLowerCase().replace(/https?:\/\/\S+/g, " ").replace(/[`*_>#~\[\](){}"“”.,!?;:]/g, " ");
+    for (const w of text.split(/\s+/)) {
+      if (w.length < 3 || STOP.has(w) || /^\d+$/.test(w) || w.startsWith("@")) continue;
+      words.set(w, (words.get(w) || 0) + 1);
+    }
+  }
+  const topWords = [...words.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([w]) => w);
+  const withImages = commits.filter((c) => (c.images || []).length).length;
+  // last 14 days, oldest first
+  const daily = [];
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today); d.setDate(d.getDate() - i);
+    const key = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    daily.push({ d, n: 0, key });
+  }
+  for (const c of commits) {
+    const d = new Date(c.created_at); d.setHours(0, 0, 0, 0);
+    const idx = Math.round((d - daily[0].d) / 86400000);
+    if (idx >= 0 && idx < 14) daily[idx].n++;
+  }
+  // streak (consecutive local days up to today or yesterday)
+  const set = new Set(commits.map((c) => { const d = new Date(c.created_at); d.setHours(0, 0, 0, 0); return d.getTime(); }));
+  let streak = 0; const t = new Date(today);
+  if (!set.has(t.getTime())) t.setDate(t.getDate() - 1);
+  while (set.has(t.getTime())) { streak++; t.setDate(t.getDate() - 1); }
+
+  const n = commits.length || 1;
+  const tags = [];
+  if (peak <= 4) tags.push("night owl"); else if (peak <= 8) tags.push("early bird"); else if (peak <= 16) tags.push("day shift"); else tags.push("evening shipper");
+  if (replies.length / n > 0.55) tags.push("reply guy");
+  else if (posts.length / n > 0.8) tags.push("broadcaster");
+  if (stars / n >= 10) tags.push("crowd favorite"); else if (stars / n >= 3) tags.push("well starred");
+  if (withImages / n > 0.3) tags.push("screenshot enjoyer");
+  if (streak >= 3) tags.push(`${streak}-day streak`);
+  return { user, total: commits.length, fetched: commits.length, posts: posts.length, replies: replies.length, stars, repliesIn, best, hours, peak, topWords, daily, streak, tags };
+}
+
+// ---------- drawing ----------
+function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+function wrapText(ctx, text, maxW, maxLines) {
+  const words = text.replace(/\s+/g, " ").trim().split(" ");
+  const lines = []; let line = "";
+  for (const w of words) {
+    const test = line ? line + " " + w : w;
+    if (ctx.measureText(test).width <= maxW) { line = test; continue; }
+    if (line) lines.push(line);
+    line = w;
+    while (ctx.measureText(line).width > maxW) { // hard-break very long tokens
+      let cut = line.length; while (cut > 1 && ctx.measureText(line.slice(0, cut)).width > maxW) cut--;
+      lines.push(line.slice(0, cut)); line = line.slice(cut);
+    }
+    if (lines.length >= maxLines) break;
+  }
+  if (line && lines.length < maxLines) lines.push(line);
+  if (lines.length === maxLines && words.join(" ").length > lines.join(" ").length) {
+    let last = lines[maxLines - 1];
+    while (ctx.measureText(last + "…").width > maxW && last.length) last = last.slice(0, -1);
+    lines[maxLines - 1] = last.trimEnd() + "…";
+  }
+  return lines.slice(0, maxLines);
+}
+function fmt(n) { return n >= 10000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1) + "k" : n.toLocaleString("en-US"); }
+function loadImg(src) { return new Promise((res) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => res(i); i.onerror = () => res(null); i.src = src; }); }
+
+async function draw(s) {
+  await Promise.all([document.fonts.load(`800 40px ${SANS}`), document.fonts.load(`700 20px ${MONO}`), document.fonts.load(`400 16px ${MONO}`)]).catch(() => {});
+  const cv = $("card"), ctx = cv.getContext("2d");
+  const W = 1200, H = 675;
+  ctx.fillStyle = C.bg; ctx.fillRect(0, 0, W, H);
+  // dotted grid
+  ctx.fillStyle = "#1b1b21";
+  for (let x = 12; x < W; x += 24) for (let y = 12; y < H; y += 24) ctx.fillRect(x, y, 2, 2);
+  // pink top bar
+  const g = ctx.createLinearGradient(0, 0, W, 0); g.addColorStop(0, C.pink); g.addColorStop(1, C.pink2);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, 6);
+
+  // header: avatar + name + logo
+  const av = s.user.avatar_url ? await loadImg(s.user.avatar_url) : null;
+  ctx.save(); ctx.beginPath(); ctx.arc(84, 92, 40, 0, Math.PI * 2); ctx.closePath();
+  if (av) { ctx.clip(); ctx.drawImage(av, 44, 52, 80, 80); } else { ctx.fillStyle = C.faint; ctx.fill(); }
+  ctx.restore();
+  ctx.strokeStyle = C.pink; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(84, 92, 42, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = C.ink; ctx.font = `800 38px ${SANS}`; ctx.textBaseline = "alphabetic";
+  const name = s.user.name || s.user.username;
+  ctx.fillText(name.length > 26 ? name.slice(0, 25) + "…" : name, 144, 86);
+  ctx.fillStyle = C.dim; ctx.font = `400 19px ${MONO}`;
+  ctx.fillText(`@${s.user.username}`, 146, 118);
+  ctx.textAlign = "right";
+  ctx.fillStyle = C.ink; ctx.font = `700 24px ${MONO}`;
+  ctx.fillText("/dev/null", W - 48, 82);
+  ctx.fillStyle = C.pink; ctx.font = `700 15px ${MONO}`;
+  ctx.fillText("WRAPPED", W - 48, 108);
+  ctx.textAlign = "left";
+
+  // stat tiles
+  const tiles = [
+    ["commits", fmt(s.user.commits_count ?? s.total)],
+    ["stars received", fmt(s.stars)],
+    ["replies received", fmt(s.repliesIn)],
+    ["followers", fmt(s.user.followers_count ?? 0)],
+  ];
+  tiles.forEach(([label, val], i) => {
+    const x = 44 + i * 186, y = 160, w = 172, h = 104;
+    ctx.fillStyle = C.panel; rr(ctx, x, y, w, h, 14); ctx.fill();
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; rr(ctx, x + .5, y + .5, w - 1, h - 1, 14); ctx.stroke();
+    ctx.fillStyle = i === 1 ? C.pink : C.ink; ctx.font = `800 40px ${SANS}`;
+    ctx.fillText(val, x + 18, y + 56);
+    ctx.fillStyle = C.dim; ctx.font = `400 14px ${MONO}`;
+    ctx.fillText(label, x + 18, y + 84);
+  });
+
+  // best commit
+  const bx = 44, by = 286, bw = 730, bh = 196;
+  ctx.fillStyle = C.panel; rr(ctx, bx, by, bw, bh, 14); ctx.fill();
+  ctx.strokeStyle = C.line; rr(ctx, bx + .5, by + .5, bw - 1, bh - 1, 14); ctx.stroke();
+  ctx.fillStyle = C.pink; ctx.font = `700 15px ${MONO}`;
+  ctx.fillText(s.best ? `best commit  ${s.best.short_hash || ""}` : "best commit", bx + 22, by + 34);
+  if (s.best) {
+    ctx.textAlign = "right"; ctx.fillStyle = C.dim; ctx.font = `400 15px ${MONO}`;
+    ctx.fillText(`★ ${fmt(s.best.stars_count || 0)}   ↩ ${fmt(s.best.replies_count || 0)}`, bx + bw - 22, by + 34);
+    ctx.textAlign = "left";
+    // biggest font that fits the box; long commits fall back to 24px with an ellipsis
+    const body = "“" + (s.best.body || "(image)").replace(/\s+/g, " ").trim() + "”";
+    const areaTop = by + 52, areaH = bh - 70;
+    let size = 24, lines = null;
+    for (const fs of [40, 34, 30, 27, 24]) {
+      ctx.font = `600 ${fs}px ${SANS}`;
+      const lh = Math.round(fs * 1.28), maxL = Math.max(1, Math.floor(areaH / lh));
+      const ls = wrapText(ctx, body, bw - 44, 99);
+      if (ls.length <= maxL) { size = fs; lines = ls; break; }
+    }
+    if (!lines) { ctx.font = `600 24px ${SANS}`; lines = wrapText(ctx, body, bw - 44, Math.floor(areaH / 31)); }
+    const lh = Math.round(size * 1.28), blockH = lines.length * lh;
+    ctx.fillStyle = C.ink; ctx.textBaseline = "top";
+    lines.forEach((l, i) => ctx.fillText(l, bx + 22, areaTop + (areaH - blockH) / 2 + i * lh));
+    ctx.textBaseline = "alphabetic";
+  } else {
+    ctx.fillStyle = C.dim; ctx.font = `600 24px ${SANS}`; ctx.fillText("nothing committed yet. git commit -m \"hello\"", bx + 22, by + 80);
+  }
+
+  // hours chart
+  const hx = 44, hy = 502, hw = 730, hh = 130;
+  ctx.fillStyle = C.panel; rr(ctx, hx, hy, hw, hh, 14); ctx.fill();
+  ctx.strokeStyle = C.line; rr(ctx, hx + .5, hy + .5, hw - 1, hh - 1, 14); ctx.stroke();
+  ctx.fillStyle = C.pink; ctx.font = `700 15px ${MONO}`;
+  ctx.fillText("when you commit", hx + 22, hy + 30);
+  ctx.textAlign = "right"; ctx.fillStyle = C.dim; ctx.font = `400 15px ${MONO}`;
+  ctx.fillText(`peak ${String(s.peak).padStart(2, "0")}:00 local`, hx + hw - 22, hy + 30); ctx.textAlign = "left";
+  const maxH = Math.max(1, ...s.hours), bw2 = (hw - 44) / 24;
+  s.hours.forEach((v, i) => {
+    const bh2 = v ? Math.max(4, (v / maxH) * 58) : 2;
+    ctx.fillStyle = i === s.peak && v ? C.pink : v ? "#5a3445" : C.faint;
+    rr(ctx, hx + 22 + i * bw2 + 2, hy + 104 - bh2, bw2 - 4, bh2, 3); ctx.fill();
+  });
+  ctx.fillStyle = C.dim; ctx.font = `400 12px ${MONO}`;
+  [0, 6, 12, 18].forEach((h) => ctx.fillText(String(h).padStart(2, "0"), hx + 22 + h * bw2 + 2, hy + 122));
+
+  // right column: persona, last 14 days, words
+  const rx = 796, rw = W - 44 - rx;
+  ctx.fillStyle = C.panel; rr(ctx, rx, 160, rw, 472, 14); ctx.fill();
+  ctx.strokeStyle = C.line; rr(ctx, rx + .5, 160.5, rw - 1, 471, 14); ctx.stroke();
+  let y = 194;
+  ctx.fillStyle = C.pink; ctx.font = `700 15px ${MONO}`; ctx.fillText("git config persona", rx + 22, y);
+  y += 16;
+  ctx.font = `600 16px ${MONO}`;
+  let tx = rx + 22;
+  for (const tag of s.tags.slice(0, 4)) {
+    const w = ctx.measureText(tag).width + 24;
+    if (tx + w > rx + rw - 18) { tx = rx + 22; y += 40; }
+    ctx.fillStyle = "#2a1620"; rr(ctx, tx, y, w, 30, 15); ctx.fill();
+    ctx.strokeStyle = "#5a3445"; rr(ctx, tx + .5, y + .5, w - 1, 29, 15); ctx.stroke();
+    ctx.fillStyle = C.pink2; ctx.fillText(tag, tx + 12, y + 21);
+    tx += w + 8;
+  }
+  y += 74;
+  ctx.fillStyle = C.pink; ctx.font = `700 15px ${MONO}`; ctx.fillText("last 14 days", rx + 22, y);
+  const maxD = Math.max(1, ...s.daily.map((d) => d.n)), cw = (rw - 44) / 14;
+  s.daily.forEach((d, i) => {
+    const a = d.n ? 0.25 + 0.75 * (d.n / maxD) : 0;
+    ctx.fillStyle = d.n ? `rgba(240,103,154,${a})` : C.faint;
+    rr(ctx, rx + 22 + i * cw + 2, y + 14, cw - 4, cw - 4, 4); ctx.fill();
+  });
+  y += 14 + cw + 50;
+  ctx.fillStyle = C.pink; ctx.font = `700 15px ${MONO}`; ctx.fillText("grep -c your words", rx + 22, y);
+  y += 30;
+  ctx.font = `600 22px ${SANS}`; ctx.fillStyle = C.ink;
+  const words = s.topWords.length ? s.topWords : ["(quiet so far)"];
+  words.slice(0, 5).forEach((w, i) => {
+    ctx.fillStyle = i === 0 ? C.ink : C.dim;
+    const t = w.length > 18 ? w.slice(0, 17) + "…" : w;
+    ctx.fillText(t, rx + 22, y + i * 32);
+  });
+
+  // footer
+  ctx.fillStyle = C.dim; ctx.font = `400 14px ${MONO}`;
+  ctx.fillText(`dev-null.sh/@${s.user.username}`, 44, 658);
+  ctx.textAlign = "right";
+  ctx.fillText(s.total >= 800 ? "last 800 commits" : `${s.posts} commits · ${s.replies} replies`, W - 44, 658);
+  ctx.textAlign = "left";
+}
+
+// ---------- ui ----------
+function setStatus(msg, err) { const el = $("status"); el.textContent = msg; el.classList.toggle("err", !!err); }
+async function run(username) {
+  username = username.trim().replace(/^@/, "").replace(/^https?:\/\/dev-null\.sh\/@?/, "").split(/[/?#]/)[0];
+  if (!/^[A-Za-z0-9-_.]{1,39}$/.test(username)) return setStatus("that doesn't look like a username", true);
+  $("go").disabled = true;
+  setStatus(`git fetch @${username}…`);
+  try {
+    const data = await fetchAll(username, (n) => setStatus(`git fetch @${username}… ${n} commits`));
+    const s = stats(data);
+    current = s;
+    $("stage").classList.remove("hidden"); $("actions").classList.remove("hidden");
+    await draw(s);
+    setStatus(`done. ${s.total} commits read.`);
+    const url = new URL(location.href); url.search = "?u=" + encodeURIComponent(s.user.username); url.hash = "";
+    history.replaceState(null, "", url);
+    const text = `my /dev/null wrapped: ${fmt(s.stars)} stars, best commit "${(s.best?.body || "").replace(/\s+/g, " ").slice(0, 60)}${(s.best?.body || "").length > 60 ? "…" : ""}"\n\nget yours:`;
+    $("tweet").href = "https://x.com/intent/post?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url.toString());
+  } catch (e) {
+    setStatus(String(e.message || e), true);
+  } finally { $("go").disabled = false; }
+}
+$("form").addEventListener("submit", (e) => { e.preventDefault(); run($("user").value); });
+$("dl").onclick = () => $("card").toBlob((b) => {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(b);
+  a.download = `devnull-wrapped-${current ? current.user.username : "card"}.png`; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}, "image/png");
+$("copy").onclick = () => $("card").toBlob(async (b) => {
+  try { await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); setStatus("image copied, paste it into your post"); }
+  catch { setStatus("your browser can't copy images, use Download instead", true); }
+}, "image/png");
+$("link").onclick = async () => { try { await navigator.clipboard.writeText(location.href); setStatus("link copied"); } catch { setStatus(location.href); } };
+
+const u = new URLSearchParams(location.search).get("u");
+if (u) { $("user").value = u; run(u); } else { $("user").focus(); }
+</script>
+</body>
+</html>
