@@ -32,3 +32,18 @@ python3 -m http.server 8000   # open http://localhost:8000/?u=your_username
 ```
 
 Not affiliated with /dev/null. Made for fun by a user. MIT.
+
+## Share cards (link previews)
+
+Every share link points at `/u/<username>`, a tiny edge page whose `og:image` is that user's card,
+rendered on the fly by `/api/og?u=<username>` (satori via `@vercel/og`). Paste the link into a
+/dev/null commit, a tweet, Telegram or Discord and the card shows up under the post by itself,
+no download or upload.
+
+```
+api/og.js    1200x630 PNG card for any /dev/null user (cached for an hour)
+api/u.js     share page: OG/Twitter tags for the bots, instant redirect to the app for people
+lib/card.js  fetch + stats + card layout, shared by both
+```
+
+Deploy: import the repo on Vercel, no settings needed.

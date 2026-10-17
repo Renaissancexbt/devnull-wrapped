@@ -328,6 +328,10 @@ async function draw(s) {
 }
 
 // ---------- sharing to /dev/null ----------
+// Share links point at /u/<name>: an edge page whose og:image is that user's card,
+// so /dev/null (and X, Telegram, Discord) show the card under the post automatically.
+const SHARE_ORIGIN = /github\.io$/.test(location.hostname) || location.protocol === "file:" ? "https://devnull-wrapped.vercel.app" : location.origin;
+const shareLink = (u) => `${SHARE_ORIGIN}/u/${encodeURIComponent(u)}`;
 let devnullText = "";
 function escapeHTML(t) { return t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function shareText(s, link) {
@@ -353,8 +357,9 @@ async function run(username) {
     const url = new URL(location.href); url.search = "?u=" + encodeURIComponent(s.user.username); url.hash = "";
     history.replaceState(null, "", url);
     const text = `my /dev/null wrapped: ${fmt(s.stars)} stars, best commit "${(s.best?.body || "").replace(/\s+/g, " ").slice(0, 60)}${(s.best?.body || "").length > 60 ? "…" : ""}"\n\nget yours:`;
-    $("tweet").href = "https://x.com/intent/post?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url.toString());
-    devnullText = shareText(s, url.toString());
+    const link = shareLink(s.user.username);
+    $("tweet").href = "https://x.com/intent/post?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(link);
+    devnullText = shareText(s, link);
     const quoted = "'" + devnullText.replace(/'/g, "'\\''") + "'";
     $("cmd").innerHTML = '<b>$</b> curl -fsSL https://dev-null.sh/commit | bash -s -- ' + escapeHTML(quoted);
     $("cmd").dataset.raw = "curl -fsSL https://dev-null.sh/commit | bash -s -- " + quoted;
@@ -377,14 +382,13 @@ $("devnull").onclick = async () => {
   if (!devnullText) return;
   try { await navigator.clipboard.writeText(devnullText); } catch {}
   window.open("https://dev-null.sh", "_blank", "noopener");
-  $("dl").click(); // card lands in Downloads, ready for the image button in the composer
-  setStatus("text copied + card downloaded → in /dev/null: paste into “What did you ship?”, attach the PNG, Commit");
+  setStatus("copied. in /dev/null paste into “What did you ship?” and Commit. your card shows up under the post by itself");
 };
 $("copycmd").onclick = async () => {
   try { await navigator.clipboard.writeText($("cmd").dataset.raw); setStatus("command copied. run it in your terminal to commit to /dev/null"); }
   catch { setStatus("couldn't copy, select the command and copy it by hand", true); }
 };
-$("link").onclick = async () => { try { await navigator.clipboard.writeText(location.href); setStatus("link copied"); } catch { setStatus(location.href); } };
+$("link").onclick = async () => { const l = current ? shareLink(current.user.username) : location.href; try { await navigator.clipboard.writeText(l); setStatus("link copied"); } catch { setStatus(l); } };
 
 const u = new URLSearchParams(location.search).get("u");
 if (u) { $("user").value = u; run(u); } else { $("user").focus(); }
