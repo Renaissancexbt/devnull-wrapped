@@ -34,6 +34,11 @@ canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
 .status { color: var(--dim); font: 14px 'JetBrains Mono', ui-monospace, monospace; min-height: 20px; margin: 4px 0 14px; }
 .status.err { color: #ff7b7b; }
 footer { color: var(--dim); font-size: 13px; margin-top: 28px; line-height: 1.6; }
+.term { margin-top: 16px; background: #0a0a0c; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.term-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--dim); font: 13px 'JetBrains Mono', ui-monospace, monospace; }
+.term-head button { padding: 5px 10px; font-size: 13px; }
+.term code { display: block; padding: 14px 16px; font: 14px/1.5 'JetBrains Mono', ui-monospace, monospace; color: var(--ink); white-space: pre-wrap; word-break: break-all; }
+.term code b { color: var(--pink); font-weight: 400; }
 .hidden { display: none !important; }
 </style>
 </head>
@@ -56,8 +61,14 @@ footer { color: var(--dim); font-size: 13px; margin-top: 28px; line-height: 1.6;
   <div class="actions hidden" id="actions">
     <button id="dl">⬇ Download PNG</button>
     <button id="copy">⧉ Copy image</button>
+    <button class="primary" id="devnull">// Share on /dev/null</button>
     <a class="btn" id="tweet" target="_blank" rel="noopener">Share on X</a>
     <button id="link">🔗 Copy link</button>
+  </div>
+
+  <div class="term hidden" id="term">
+    <div class="term-head"><span>or commit it from your terminal</span><button id="copycmd">copy</button></div>
+    <code id="cmd"></code>
   </div>
 
   <footer>
@@ -316,6 +327,15 @@ async function draw(s) {
   ctx.textAlign = "left";
 }
 
+// ---------- sharing to /dev/null ----------
+let devnullText = "";
+function escapeHTML(t) { return t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function shareText(s, link) {
+  const best = (s.best?.body || "").replace(/\s+/g, " ").trim();
+  const quote = best ? ` best commit: "${best.length > 70 ? best.slice(0, 69) + "…" : best}".` : "";
+  return `git log --wrapped: ${fmt(s.user.commits_count ?? s.total)} commits, ${fmt(s.stars)} stars, peak hour ${String(s.peak).padStart(2, "0")}:00.${quote} ${s.tags[0] ? "persona: " + s.tags[0] + ". " : ""}get yours → ${link}`;
+}
+
 // ---------- ui ----------
 function setStatus(msg, err) { const el = $("status"); el.textContent = msg; el.classList.toggle("err", !!err); }
 async function run(username) {
@@ -334,6 +354,11 @@ async function run(username) {
     history.replaceState(null, "", url);
     const text = `my /dev/null wrapped: ${fmt(s.stars)} stars, best commit "${(s.best?.body || "").replace(/\s+/g, " ").slice(0, 60)}${(s.best?.body || "").length > 60 ? "…" : ""}"\n\nget yours:`;
     $("tweet").href = "https://x.com/intent/post?text=" + encodeURIComponent(text) + "&url=" + encodeURIComponent(url.toString());
+    devnullText = shareText(s, url.toString());
+    const quoted = "'" + devnullText.replace(/'/g, "'\\''") + "'";
+    $("cmd").innerHTML = '<b>$</b> curl -fsSL https://dev-null.sh/commit | bash -s -- ' + escapeHTML(quoted);
+    $("cmd").dataset.raw = "curl -fsSL https://dev-null.sh/commit | bash -s -- " + quoted;
+    $("term").classList.remove("hidden");
   } catch (e) {
     setStatus(String(e.message || e), true);
   } finally { $("go").disabled = false; }
@@ -348,6 +373,17 @@ $("copy").onclick = () => $("card").toBlob(async (b) => {
   try { await navigator.clipboard.write([new ClipboardItem({ "image/png": b })]); setStatus("image copied, paste it into your post"); }
   catch { setStatus("your browser can't copy images, use Download instead", true); }
 }, "image/png");
+$("devnull").onclick = async () => {
+  if (!devnullText) return;
+  try { await navigator.clipboard.writeText(devnullText); } catch {}
+  window.open("https://dev-null.sh", "_blank", "noopener");
+  $("dl").click(); // card lands in Downloads, ready for the image button in the composer
+  setStatus("text copied + card downloaded → in /dev/null: paste into “What did you ship?”, attach the PNG, Commit");
+};
+$("copycmd").onclick = async () => {
+  try { await navigator.clipboard.writeText($("cmd").dataset.raw); setStatus("command copied. run it in your terminal to commit to /dev/null"); }
+  catch { setStatus("couldn't copy, select the command and copy it by hand", true); }
+};
 $("link").onclick = async () => { try { await navigator.clipboard.writeText(location.href); setStatus("link copied"); } catch { setStatus(location.href); } };
 
 const u = new URLSearchParams(location.search).get("u");
