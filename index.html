@@ -64,6 +64,7 @@ footer { color: var(--dim); font-size: 13px; margin-top: 28px; line-height: 1.6;
     <button class="primary" id="devnull">// Share on /dev/null</button>
     <a class="btn" id="tweet" target="_blank" rel="noopener">Share on X</a>
     <button id="link">🔗 Copy link</button>
+    <button id="badge" title="Markdown badge for your GitHub README">🏷 README badge</button>
   </div>
 
   <div class="term hidden" id="term">
@@ -387,6 +388,12 @@ $("devnull").onclick = async () => {
 $("copycmd").onclick = async () => {
   try { await navigator.clipboard.writeText($("cmd").dataset.raw); setStatus("command copied. run it in your terminal to commit to /dev/null"); }
   catch { setStatus("couldn't copy, select the command and copy it by hand", true); }
+};
+$("badge").onclick = async () => {
+  if (!current) return;
+  const u = encodeURIComponent(current.user.username);
+  const md = `[![/dev/null](${SHARE_ORIGIN}/badge/${u})](https://dev-null.sh/@${u})`;
+  try { await navigator.clipboard.writeText(md); setStatus("badge markdown copied. paste it into your GitHub profile README"); } catch { setStatus(md); }
 };
 $("link").onclick = async () => { const l = current ? shareLink(current.user.username) : location.href; try { await navigator.clipboard.writeText(l); setStatus("link copied"); } catch { setStatus(l); } };
 

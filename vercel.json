@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/u/:name", "destination": "/api/u?u=:name" }]
+  "rewrites": [
+    { "source": "/u/:name", "destination": "/api/u?u=:name" },
+    { "source": "/badge/:name", "destination": "/api/badge?u=:name" }
+  ]
 }
