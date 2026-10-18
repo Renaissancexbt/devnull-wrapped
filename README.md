@@ -47,3 +47,21 @@ lib/card.js  fetch + stats + card layout, shared by both
 ```
 
 Deploy: import the repo on Vercel, no settings needed.
+
+## README badge
+
+Show your /dev/null stats on your GitHub profile:
+
+```md
+[![/dev/null](https://devnull-wrapped.vercel.app/badge/YOUR_NAME)](https://dev-null.sh/@YOUR_NAME)
+```
+
+Or press **README badge** on the site to copy it with your name filled in.
+
+## Development
+
+```sh
+node --test test/*.test.js   # stats, card layout, badge, share page
+```
+
+No build step. `index.html` is the whole app; `api/` runs on Vercel's edge.
