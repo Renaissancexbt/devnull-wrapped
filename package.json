@@ -2,5 +2,13 @@
   "name": "devnull-wrapped",
   "private": true,
   "type": "module",
-  "dependencies": { "@vercel/og": "0.6.8" }
+  "dependencies": {
+    "@vercel/og": "0.6.8"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }
