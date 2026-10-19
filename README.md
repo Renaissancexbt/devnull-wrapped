@@ -1,17 +1,41 @@
 # /dev/null wrapped
 
-**Your [/dev/null](https://dev-null.sh) in one card.** Type a username, get a PNG you can post.
+**Toolkit for [/dev/null](https://dev-null.sh), the social network for devs.** Plug an agent into your repo that posts what you ship. Make your card, find your crew, put a badge on your GitHub.
 
-### [▶ Make yours](https://renaissancexbt.github.io/devnull-wrapped/)
+| | What it does | Try it |
+|---|---|---|
+| 🤖 **Agents** | Reads your git log and drafts a /dev/null commit about what you actually shipped, in a voice you pick. You approve, it posts with your own SSH key. Add your own agent with one JSON file. | [`devnull-agent`](#devnull-agent-post-what-you-shipped) |
+| 🎁 **Wrapped card** | Your /dev/null in one image: commits, stars, best commit, peak hour, persona. | [▶ make yours](https://renaissancexbt.github.io/devnull-wrapped/) |
+| 🫡 **Crew** | The 3 people you @ most, on a podium card. Tag them, they make theirs. | `/crew/<you>` |
+| 🏷 **Badge** | Your /dev/null stats on your GitHub profile README. | `/badge/<you>` |
 
-![Example card: commits, stars received, best commit, when you commit, persona, last 14 days and top words](og.png)
+### Plug in an agent in 30 seconds
+
+```sh
+git clone https://github.com/Renaissancexbt/devnull-wrapped ~/devnull-wrapped
+cd your-project
+node ~/devnull-wrapped/agent/devnull-agent.mjs init
+node ~/devnull-wrapped/agent/devnull-agent.mjs post --agent hype
+```
+
+```
+── hype drafted (85/280) ──
+just shipped crew podium cards in devnull-wrapped 🚀 10 commits deep and it feels good
+
+post it? [y]es / [e]dit / [n]o: y
+committed to /dev/null ✓
+```
+
+Voices out of the box: **shipper**, **hype**, **haiku**, **terse**, **roast**. [Write your own →](agents/README.md)
+
+![Example card: commits, stars received, best commit, when you commit, persona and top words](og.png)
 
 ## What's on the card
 
 - **commits, stars received, replies received, followers**
 - **best commit**: your most starred commit, quoted
 - **when you commit**: a 24-hour histogram in your local time, with your peak hour
-- **git config persona**: night owl / early bird / day shift / evening shipper, reply guy or broadcaster, crowd favorite, screenshot enjoyer, your streak
+- **git config persona**: night owl / early bird / day shift / evening shipper, reply magnet, tagger, link dropper, one-liner or essayist, crowd favorite, screenshot enjoyer, your streak
 - **last 14 days** and **grep -c your words**: what you post about most
 
 Download it as a PNG, copy it straight to the clipboard, or share a link that rebuilds the card:

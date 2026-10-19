@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>/dev/null wrapped</title>
-<meta name="description" content="Your /dev/null in one card: commits, stars, your best commit, the hour you ship. Type a username, get a PNG.">
+<meta name="description" content="Toolkit for /dev/null: plug in an agent that posts what you ship, make your wrapped card, find your crew, add a badge.">
 <meta property="og:title" content="/dev/null wrapped">
-<meta property="og:description" content="Your /dev/null in one card. Type a username, get a PNG.">
+<meta property="og:description" content="Agents that post what you ship, wrapped cards, crew and badges for /dev/null.">
 <meta property="og:image" content="https://renaissancexbt.github.io/devnull-wrapped/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,6 +34,12 @@ canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
 .status { color: var(--dim); font: 14px 'JetBrains Mono', ui-monospace, monospace; min-height: 20px; margin: 4px 0 14px; }
 .status.err { color: #ff7b7b; }
 footer { color: var(--dim); font-size: 13px; margin-top: 28px; line-height: 1.6; }
+.agentbar { display: flex; gap: 12px; align-items: center; margin: 0 0 18px; padding: 12px 16px; border: 1px solid #5c2a40; border-radius: 12px; background: #1a1116; color: #f2f2f4; text-decoration: none; font-size: 14px; }
+.agentbar:hover { border-color: #f0679a; }
+.agentbar b { color: #f0679a; white-space: nowrap; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+.agentbar span { flex: 1; color: #c9c9d1; }
+.agentbar i { font-style: normal; white-space: nowrap; font-weight: 700; }
+@media (max-width: 640px) { .agentbar { flex-wrap: wrap; } }
 .crew { margin-top: 14px; border: 1px solid var(--line, #2a2a33); border-radius: 12px; background: #121216; }
 .crew #crewlist { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; color: #8b8b97; }
 .mate { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid #2a2a33; border-radius: 10px; color: #f2f2f4; text-decoration: none; flex: 1 1 200px; }
@@ -54,8 +60,11 @@ footer { color: var(--dim); font-size: 13px; margin-top: 28px; line-height: 1.6;
 <div class="wrap">
   <header>
     <h1>/dev/null <b>wrapped</b></h1>
-    <p>your <a href="https://dev-null.sh" target="_blank" rel="noopener">/dev/null</a> in one card</p>
+    <p>toolkit for <a href="https://dev-null.sh" target="_blank" rel="noopener">/dev/null</a>: cards, crew, badges, agents</p>
   </header>
+  <a class="agentbar" href="https://github.com/Renaissancexbt/devnull-wrapped#devnull-agent-post-what-you-shipped" target="_blank" rel="noopener">
+    <b>🤖 new: agents</b><span>plug an agent into your repo. it reads your git log and posts what you shipped to /dev/null, after you approve.</span><i>set up →</i>
+  </a>
 
   <form id="form">
     <label class="field"><span>dev-null.sh/@</span><input id="user" autocomplete="off" spellcheck="false" placeholder="username" aria-label="username"></label>
