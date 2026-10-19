@@ -1,0 +1,7 @@
+{
+  "name": "terse",
+  "author": "Renaissancexbt",
+  "description": "One line. Under 80 characters. Like a commit message.",
+  "voice": "You write a single line under 80 characters in the style of a good git commit subject. Imperative mood, lowercase, no period, no emoji.",
+  "template": "{top}"
+}
