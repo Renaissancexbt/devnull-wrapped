@@ -34,6 +34,14 @@ canvas { width: 100%; height: auto; display: block; border-radius: 10px; }
 .status { color: var(--dim); font: 14px 'JetBrains Mono', ui-monospace, monospace; min-height: 20px; margin: 4px 0 14px; }
 .status.err { color: #ff7b7b; }
 footer { color: var(--dim); font-size: 13px; margin-top: 28px; line-height: 1.6; }
+.crew { margin-top: 14px; border: 1px solid var(--line, #2a2a33); border-radius: 12px; background: #121216; }
+.crew #crewlist { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 13px; color: #8b8b97; }
+.mate { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid #2a2a33; border-radius: 10px; color: #f2f2f4; text-decoration: none; flex: 1 1 200px; }
+.mate:hover { border-color: #f0679a; }
+.mate b { color: #f0679a; }
+.mate img { width: 36px; height: 36px; border-radius: 50%; background: #24242c; }
+.mate span { display: flex; flex-direction: column; font-family: Inter, system-ui, sans-serif; font-weight: 700; }
+.mate small { font-family: 'JetBrains Mono', ui-monospace, monospace; font-weight: 400; color: #8b8b97; font-size: 12px; }
 .term { margin-top: 16px; background: #0a0a0c; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
 .term-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); color: var(--dim); font: 13px 'JetBrains Mono', ui-monospace, monospace; }
 .term-head button { padding: 5px 10px; font-size: 13px; }
@@ -65,9 +73,11 @@ footer { color: var(--dim); font-size: 13px; margin-top: 28px; line-height: 1.6;
     <a class="btn" id="tweet" target="_blank" rel="noopener">Share on X</a>
     <button id="link">🔗 Copy link</button>
     <button id="badge" title="Markdown badge for your GitHub README">🏷 README badge</button>
+    <button id="crewbtn" title="The people you @mention most">👥 My crew</button>
   </div>
 
-  <div class="term hidden" id="term">
+  <div class="crew hidden" id="crew"><div class="term-head"><span>your /dev/null crew · the people you @ most</span><button class="primary" id="copycrew">copy post</button></div><div id="crewlist"></div></div>
+<div class="term hidden" id="term">
     <div class="term-head"><span>or commit it from your terminal</span><button id="copycmd">copy</button></div>
     <code id="cmd"></code>
   </div>
@@ -351,6 +361,7 @@ async function run(username) {
   try {
     const data = await fetchAll(username, (n) => setStatus(`git fetch @${username}… ${n} commits`));
     const s = stats(data);
+    s.commits = data.commits;
     current = s;
     $("stage").classList.remove("hidden"); $("actions").classList.remove("hidden");
     await draw(s);
@@ -389,6 +400,43 @@ $("copycmd").onclick = async () => {
   try { await navigator.clipboard.writeText($("cmd").dataset.raw); setStatus("command copied. run it in your terminal to commit to /dev/null"); }
   catch { setStatus("couldn't copy, select the command and copy it by hand", true); }
 };
+// ---------- crew: who you @mention most (the API has star counts, not who starred) ----------
+const MENTION = /(?:^|[^\w@/.])@([A-Za-z0-9_-]{1,39})/g;
+function mentions(commits, self) {
+  const me = String(self).toLowerCase(), count = new Map();
+  for (const c of commits) {
+    const seen = new Set();
+    for (const m of String(c.body || "").replace(/https?:\/\/\S+/g, " ").matchAll(MENTION)) {
+      const name = m[1].replace(/[-_]+$/, ""), key = name.toLowerCase();
+      if (!name || key === me || seen.has(key)) continue;
+      seen.add(key);
+      const e = count.get(key) || { username: name, n: 0 }; e.n++; count.set(key, e);
+    }
+  }
+  return [...count.values()].sort((a, b) => b.n - a.n || a.username.localeCompare(b.username));
+}
+let crewText = "";
+async function showCrew() {
+  if (!current) return;
+  const box = $("crew"), list = $("crewlist");
+  box.classList.remove("hidden"); list.textContent = "git grep '@'…";
+  const found = [];
+  for (const m of mentions(current.commits || [], current.user.username).slice(0, 6)) {
+    if (found.length >= 3) break;
+    try { const u = (await getJSON(`${API}/users/${encodeURIComponent(m.username)}`)).data; if (u) found.push({ ...m, username: u.username, name: u.name, avatar: u.avatar_url }); } catch {}
+  }
+  if (!found.length) { list.textContent = "no crew yet. @mention people in your commits and come back."; crewText = ""; return; }
+  list.innerHTML = found.map((m, i) => `<a class="mate" href="https://dev-null.sh/@${encodeURIComponent(m.username)}" target="_blank" rel="noopener"><b>#${i + 1}</b><img src="${escapeHTML(m.avatar || "")}" alt=""><span>${escapeHTML(m.name || m.username)}<small>@${escapeHTML(m.username)} · tagged ${m.n}×</small></span></a>`).join("");
+  crewText = `my /dev/null crew 🫡 ${found.map((m) => "@" + m.username).join(" ")}\n\nwho's in yours? → ${SHARE_ORIGIN}/crew/${encodeURIComponent(current.user.username)}`;
+  box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+$("crewbtn").onclick = showCrew;
+$("copycrew").onclick = async () => {
+  if (!crewText) return;
+  try { await navigator.clipboard.writeText(crewText); } catch {}
+  window.open("https://dev-null.sh", "_blank", "noopener");
+  setStatus("crew post copied. paste it in /dev/null, the crew card shows up under it");
+};
 $("badge").onclick = async () => {
   if (!current) return;
   const u = encodeURIComponent(current.user.username);
@@ -398,7 +446,8 @@ $("badge").onclick = async () => {
 $("link").onclick = async () => { const l = current ? shareLink(current.user.username) : location.href; try { await navigator.clipboard.writeText(l); setStatus("link copied"); } catch { setStatus(l); } };
 
 const u = new URLSearchParams(location.search).get("u");
-if (u) { $("user").value = u; run(u); } else { $("user").focus(); }
+const wantCrew = new URLSearchParams(location.search).has("crew");
+if (u) { $("user").value = u; run(u).then(() => { if (wantCrew) showCrew(); }); } else { $("user").focus(); }
 </script>
 </body>
 </html>

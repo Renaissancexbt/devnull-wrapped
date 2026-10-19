@@ -1,5 +1,5 @@
 import { ImageResponse } from "@vercel/og";
-import { cleanName, fetchProfile, stats, avatarData, cardTree, missingTree } from "../lib/card.js";
+import { cleanName, fetchProfile, stats, avatarData, cardTree, missingTree, crew, crewTree } from "../lib/card.js";
 
 export const config = { runtime: "edge" };
 
@@ -19,7 +19,13 @@ export default async function handler(req) {
   try {
     const profile = username ? await fetchProfile(username) : null;
     if (profile) {
-      tree = cardTree(stats(profile), { avatar: await avatarData(profile.user.avatar_url), host });
+      if (url.searchParams.get("kind") === "crew") {
+        const members = await crew(profile);
+        const avatars = await Promise.all(members.map((m) => avatarData(m.avatar_url)));
+        tree = crewTree(profile.user, members, { avatars, host });
+      } else {
+        tree = cardTree(stats(profile), { avatar: await avatarData(profile.user.avatar_url), host });
+      }
       ok = true;
     } else tree = missingTree(username, host);
   } catch {

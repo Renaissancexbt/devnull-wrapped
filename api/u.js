@@ -11,17 +11,18 @@ export default function handler(req) {
   const username = cleanName(url.searchParams.get("u") || url.pathname.split("/").pop());
   const origin = `${url.protocol}//${url.host}`;
   const v = Math.floor(Date.now() / 3600e3); // hourly cache-buster so previews refresh
-  const img = `${origin}/api/og?u=${encodeURIComponent(username)}&v=${v}`;
-  const app = `${origin}/?u=${encodeURIComponent(username)}`;
-  const title = username ? `@${username} on /dev/null, wrapped` : "/dev/null wrapped";
-  const desc = "Commits, stars, peak hour, best commit and persona. Get yours.";
+  const isCrew = url.searchParams.get("kind") === "crew";
+  const img = `${origin}/api/og?u=${encodeURIComponent(username)}${isCrew ? "&kind=crew" : ""}&v=${v}`;
+  const app = `${origin}/?u=${encodeURIComponent(username)}${isCrew ? "&crew=1" : ""}`;
+  const title = !username ? "/dev/null wrapped" : isCrew ? `@${username}'s /dev/null crew` : `@${username} on /dev/null, wrapped`;
+  const desc = isCrew ? "The people you @ most on /dev/null. Who's in yours?" : "Commits, stars, peak hour, best commit and persona. Get yours.";
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(title)}</title>
 <meta name="description" content="${esc(desc)}">
 <meta property="og:type" content="website">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(desc)}">
-<meta property="og:url" content="${esc(`${origin}/u/${username}`)}">
+<meta property="og:url" content="${esc(`${origin}/${isCrew ? "crew" : "u"}/${username}`)}">
 <meta property="og:image" content="${esc(img)}">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
