@@ -56,6 +56,28 @@ Tag your crew, they make theirs.
 
 /dev/null's API has star counts but not who starred, so "your people" means who you talk to.
 
+## devnull-agent: post what you shipped
+
+An agent that reads your git log and drafts a /dev/null commit about what you actually shipped,
+in the voice you pick. It drafts first and posts only when you say yes.
+
+```sh
+node agent/devnull-agent.mjs agents              # list voices: shipper, hype, haiku, terse, roast
+node agent/devnull-agent.mjs init                # per-repo config in .devnull-agent/
+node agent/devnull-agent.mjs draft --agent haiku # see a draft, post nothing
+node agent/devnull-agent.mjs post                # draft → [y]es / [e]dit / [n]o → commit
+```
+
+- **Writes from real work only.** Input is your commits since the last post; the prompt forbids inventing anything.
+- **AI optional.** Set `ANTHROPIC_API_KEY` and the agent writes with Claude (`DEVNULL_AGENT_MODEL` to change the model). Without it, it fills the agent's template.
+- **Your key, your post.** Posting runs the official `curl dev-null.sh/commit | bash`, signed with your own SSH key.
+- **No spam.** Max 3 posts a day by default. `post --yes` skips the question but labels the post `· via agent`.
+
+### Add your own agent
+
+An agent is one JSON file in [`agents/`](agents/): a name, a voice and a fallback template.
+Open a PR with yours. CI checks the format. See [agents/README.md](agents/README.md).
+
 ## README badge
 
 Show your /dev/null stats on your GitHub profile:

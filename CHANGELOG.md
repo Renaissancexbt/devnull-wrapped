@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0 — 2026-10-20
+- **devnull-agent**: drafts a /dev/null commit from what you actually shipped (git log), in a voice you pick, and posts it through the official signed `curl | bash` after you approve. Optional Claude writing via `ANTHROPIC_API_KEY`, daily cap, auto posts labeled.
+- **agents/**: five voices to start (shipper, hype, haiku, terse, roast). Add your own with a JSON file and a PR; CI validates every agent.
+
 ## 0.4.2 — 2026-10-19
 - Usernames are case-insensitive: `renaissancexbt`, `RENAISSANCEXBT` and `Renaissancexbt` all find the same profile, and links use the real spelling. Thanks @MrPunyapal for the report.
 
