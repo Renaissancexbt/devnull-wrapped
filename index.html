@@ -121,7 +121,6 @@ async function fetchAll(username, onPage) {
 // ---------- stats ----------
 const STOP = new Set("the a an and or but if then of to in on at for with from by is are was were be been it its this that these those i im i'm you your we our they them he she my me so just not no yes do does did have has had will can could would should about what when where how why who all any some more most very really too also out up down over into than as like get got go going gonna one two new now today tonight time still even here there lol yeah ok okay thanks thank please let lets let's make made want need know think dont don't can't cant it's that's what's there's i've i'll you're we're".split(" "));
 function stats({ user, commits }) {
-  const posts = commits.filter((c) => !c.parent_id), replies = commits.filter((c) => c.parent_id);
   const stars = commits.reduce((s, c) => s + (c.stars_count || 0), 0);
   const repliesIn = commits.reduce((s, c) => s + (c.replies_count || 0), 0);
   const best = [...commits].sort((a, b) => (b.stars_count || 0) - (a.stars_count || 0) || (b.replies_count || 0) - (a.replies_count || 0))[0] || null;
@@ -166,12 +165,17 @@ function stats({ user, commits }) {
   const n = commits.length || 1;
   const tags = [];
   if (peak <= 4) tags.push("night owl"); else if (peak <= 8) tags.push("early bird"); else if (peak <= 16) tags.push("day shift"); else tags.push("evening shipper");
-  if (replies.length / n > 0.55) tags.push("reply guy");
-  else if (posts.length / n > 0.8) tags.push("broadcaster");
+  // the user feed only carries top-level commits (no replies), so personas use what is really there
+  const avgLen = commits.reduce((t, c) => t + String(c.body || "").length, 0) / n;
+  const share = (f) => commits.filter(f).length / n;
+  if (repliesIn / n >= 3) tags.push("reply magnet");
+  if (share((c) => /(?:^|[^\w@/.])@[A-Za-z0-9_-]+/.test(c.body || "")) > 0.3) tags.push("tagger");
+  if (share((c) => c.link_preview) > 0.4) tags.push("link dropper");
+  if (commits.length >= 3 && avgLen < 50) tags.push("one-liner"); else if (avgLen > 280) tags.push("essayist");
   if (stars / n >= 10) tags.push("crowd favorite"); else if (stars / n >= 3) tags.push("well starred");
   if (withImages / n > 0.3) tags.push("screenshot enjoyer");
   if (streak >= 3) tags.push(`${streak}-day streak`);
-  return { user, total: commits.length, fetched: commits.length, posts: posts.length, replies: replies.length, stars, repliesIn, best, hours, peak, topWords, daily, streak, tags };
+  return { user, total: commits.length, fetched: commits.length, stars, repliesIn, best, hours, peak, topWords, daily, streak, tags };
 }
 
 // ---------- drawing ----------
@@ -334,7 +338,7 @@ async function draw(s) {
   ctx.fillStyle = C.dim; ctx.font = `400 14px ${MONO}`;
   ctx.fillText(`dev-null.sh/@${s.user.username}`, 44, 658);
   ctx.textAlign = "right";
-  ctx.fillText(s.total >= 800 ? "last 800 commits" : `${s.posts} commits · ${s.replies} replies`, W - 44, 658);
+  ctx.fillText(s.total >= 800 ? "last 800 commits" : `${s.total} commits read`, W - 44, 658);
   ctx.textAlign = "left";
 }
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1 — 2026-10-19
+- Fix: the user feed only returns top-level commits, so "reply guy" never fired and everyone got "broadcaster". Personas now use fields the API really has: **reply magnet** (people reply to you a lot), **tagger**, **link dropper**, **one-liner**, **essayist**.
+- Card footer shows commits read instead of an always-zero replies count.
+
 ## 0.4.0 — 2026-10-19
 - **My crew**: the three people you @mention most, as a podium card at `/crew/<name>` with its own link preview, plus a ready-to-post text that tags them.
 

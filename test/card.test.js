@@ -41,14 +41,14 @@ test("stats: uses profile commits_count when larger than what was fetched", () =
   assert.equal(stats({ user: { ...user, commits_count: 500 }, commits: [commit({})] }).total, 500);
 });
 
-test("stats: personas", () => {
-  const replies = Array.from({ length: 10 }, () => commit({ parent_id: 1, created_at: at(20) }));
-  const s = stats({ user, commits: replies });
-  assert.ok(s.tags.includes("evening shipper"));
-  assert.ok(s.tags.includes("reply guy"));
-  const loud = Array.from({ length: 5 }, () => commit({ stars_count: 20, images: [{}], created_at: at(7) }));
-  const t = stats({ user, commits: loud });
-  assert.deepEqual(t.tags, ["early bird", "broadcaster", "crowd favorite", "screenshot enjoyer"]);
+test("stats: personas come from fields the feed really has", () => {
+  const chatty = Array.from({ length: 6 }, () => commit({ body: "hey @alice look", replies_count: 5, created_at: at(20) }));
+  const s = stats({ user, commits: chatty });
+  assert.deepEqual(s.tags, ["evening shipper", "reply magnet", "tagger", "one-liner"]);
+  const loud = Array.from({ length: 5 }, () => commit({ body: "x".repeat(300), stars_count: 20, images: [{}], link_preview: { url: "u" }, created_at: at(7) }));
+  assert.deepEqual(stats({ user, commits: loud }).tags, ["early bird", "link dropper", "essayist", "crowd favorite", "screenshot enjoyer"]);
+  // no replies in the feed means nobody gets "broadcaster" for free any more
+  assert.ok(!stats({ user, commits: [commit({ body: "a normal sized commit message here, nothing special about it at all" })] }).tags.some((t) => t === "broadcaster" || t === "reply guy"));
 });
 
 test("stats: empty profile does not crash", () => {
