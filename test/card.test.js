@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanName, stats, fmt, cardTree, missingTree, mentions, crewTree } from "../lib/card.js";
+import { cleanName, stats, fmt, cardTree, missingTree, mentions, crewTree, caseVariants, fetchProfile } from "../lib/card.js";
 import { badgeSVG } from "../api/badge.js";
 import uHandler from "../api/u.js";
 
@@ -129,4 +129,22 @@ test("share page: crew links get the crew card", async () => {
   const html = await uHandler(new Request("https://wrapped.test/api/u?u=dev&kind=crew")).text();
   assert.match(html, /og:image" content="https:\/\/wrapped\.test\/api\/og\?u=dev&amp;kind=crew/);
   assert.match(html, /@dev&#39;s \/dev\/null crew/);
+});
+
+test("usernames are case-insensitive: lookup tries the usual spellings", async () => {
+  assert.deepEqual(caseVariants("renaissancexbt"), ["renaissancexbt", "Renaissancexbt", "RENAISSANCEXBT"]);
+  const real = fetch, asked = [];
+  globalThis.fetch = async (url) => {
+    asked.push(url);
+    const json = (o, status = 200) => new Response(JSON.stringify(o), { status });
+    if (url.endsWith("/users/Renaissancexbt")) return json({ data: { username: "Renaissancexbt", commits_count: 1 } });
+    if (url.includes("/users/Renaissancexbt/commits")) return json({ data: [commit({})], meta: {} });
+    return json({ message: "Not Found" }, 404);
+  };
+  try {
+    const p = await fetchProfile("renaissancexbt", { api: "https://x" });
+    assert.equal(p.user.username, "Renaissancexbt"); // canonical spelling for links and cards
+    assert.equal(p.commits.length, 1);
+    assert.equal(await fetchProfile("nobody", { api: "https://x" }), null);
+  } finally { globalThis.fetch = real; }
 });

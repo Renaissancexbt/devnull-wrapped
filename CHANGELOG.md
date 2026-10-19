@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.2 — 2026-10-19
+- Usernames are case-insensitive: `renaissancexbt`, `RENAISSANCEXBT` and `Renaissancexbt` all find the same profile, and links use the real spelling. Thanks @MrPunyapal for the report.
+
 ## 0.4.1 — 2026-10-19
 - Fix: the user feed only returns top-level commits, so "reply guy" never fired and everyone got "broadcaster". Personas now use fields the API really has: **reply magnet** (people reply to you a lot), **tagger**, **link dropper**, **one-liner**, **essayist**.
 - Card footer shows commits read instead of an always-zero replies count.

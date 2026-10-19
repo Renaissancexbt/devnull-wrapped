@@ -104,8 +104,20 @@ async function getJSON(url) {
   if (!r.ok) throw new Error(`/dev/null answered ${r.status}`);
   return r.json();
 }
+// /dev/null looks usernames up case-sensitively; try the usual spellings before giving up
+async function fetchUser(username) {
+  const lower = username.toLowerCase();
+  const tries = [...new Set([username, lower, lower.charAt(0).toUpperCase() + lower.slice(1), username.toUpperCase()])];
+  let lastErr;
+  for (const v of tries) {
+    try { return (await getJSON(`${API}/users/${encodeURIComponent(v)}`)).data; }
+    catch (e) { lastErr = e; if (!/no such user/.test(e.message)) throw e; }
+  }
+  throw lastErr;
+}
 async function fetchAll(username, onPage) {
-  const user = (await getJSON(`${API}/users/${encodeURIComponent(username)}`)).data;
+  const user = await fetchUser(username);
+  username = user.username;
   const commits = [];
   let url = `${API}/users/${encodeURIComponent(username)}/commits`;
   for (let page = 0; url && page < 40; page++) {
@@ -427,7 +439,7 @@ async function showCrew() {
   const found = [];
   for (const m of mentions(current.commits || [], current.user.username).slice(0, 6)) {
     if (found.length >= 3) break;
-    try { const u = (await getJSON(`${API}/users/${encodeURIComponent(m.username)}`)).data; if (u) found.push({ ...m, username: u.username, name: u.name, avatar: u.avatar_url }); } catch {}
+    try { const u = await fetchUser(m.username); if (u && !found.some((f) => f.username.toLowerCase() === u.username.toLowerCase()) && u.username.toLowerCase() !== current.user.username.toLowerCase()) found.push({ ...m, username: u.username, name: u.name, avatar: u.avatar_url }); } catch {}
   }
   if (!found.length) { list.textContent = "no crew yet. @mention people in your commits and come back."; crewText = ""; return; }
   list.innerHTML = found.map((m, i) => `<a class="mate" href="https://dev-null.sh/@${encodeURIComponent(m.username)}" target="_blank" rel="noopener"><b>#${i + 1}</b><img src="${escapeHTML(m.avatar || "")}" alt=""><span>${escapeHTML(m.name || m.username)}<small>@${escapeHTML(m.username)} · tagged ${m.n}×</small></span></a>`).join("");
