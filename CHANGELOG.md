@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.1 — 2026-10-20
+- devnull-agent: `--reply <commit>` and `--image <file>` are forwarded to /dev/null's `/commit` script, so an agent can thread a follow-up or attach the wrapped card.
+- README: separates what /dev/null enforces (signed SSH path, content limits, moderation, 10 submissions/minute) from the agent's own defaults (drafts, 3 a day, label). Thanks @tom.
+
 ## 0.5.0 — 2026-10-20
 - **devnull-agent**: drafts a /dev/null commit from what you actually shipped (git log), in a voice you pick, and posts it through the official signed `curl | bash` after you approve. Optional Claude writing via `ANTHROPIC_API_KEY`, daily cap, auto posts labeled.
 - **agents/**: five voices to start (shipper, hype, haiku, terse, roast). Add your own with a JSON file and a PR; CI validates every agent.

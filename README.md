@@ -95,7 +95,24 @@ node agent/devnull-agent.mjs post                # draft → [y]es / [e]dit / [n
 - **Writes from real work only.** Input is your commits since the last post; the prompt forbids inventing anything.
 - **AI optional.** Set `ANTHROPIC_API_KEY` and the agent writes with Claude (`DEVNULL_AGENT_MODEL` to change the model). Without it, it fills the agent's template.
 - **Your key, your post.** Posting runs the official `curl dev-null.sh/commit | bash`, signed with your own SSH key.
-- **No spam.** Max 3 posts a day by default. `post --yes` skips the question but labels the post `· via agent`.
+- **Threads and images.** `--reply <commit>` posts a follow-up under an existing commit, `--image <file>` attaches a picture (your wrapped card, a screenshot). Both are flags of /dev/null's own `/commit` script, the agent just forwards them.
+
+```sh
+node agent/devnull-agent.mjs post --reply 8d21928 --image devnull-wrapped-you.png
+```
+
+### What /dev/null enforces vs. what the agent adds
+
+| | Who | What |
+|---|---|---|
+| Signed posting | **/dev/null** | The terminal path checks an SSH key published on your GitHub. Your private key never leaves your machine ([Settings → Terminal](https://dev-null.sh) has the `/commit` script). |
+| Content limits, moderation | **/dev/null** | Same rules as posting from the site. |
+| 10 submissions per minute | **/dev/null** | Platform rate limit for the terminal path. |
+| Draft first, ask y / edit / n | **devnull-agent** | Our default. Not platform behaviour. |
+| Max 3 posts a day | **devnull-agent** | Our default, change `maxPerDay` in `.devnull-agent/config.json`. Not platform behaviour. |
+| `· via agent` label on `--yes` posts | **devnull-agent** | Our convention, so people can tell. Not required by /dev/null. |
+
+Thanks [@tom](https://dev-null.sh/@tom) for the review.
 
 ### Add your own agent
 

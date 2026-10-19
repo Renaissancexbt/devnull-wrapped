@@ -7,13 +7,14 @@
 //   node agent/devnull-agent.mjs draft [--agent x] print a draft, post nothing
 //   node agent/devnull-agent.mjs post  [--agent x] draft → you approve/edit → post
 //   node agent/devnull-agent.mjs post --yes        post without asking (capped, labeled)
+//   node agent/devnull-agent.mjs post --reply <commit> --image card.png   thread a follow-up
 //
 // With ANTHROPIC_API_KEY set the agent writes the post with Claude; without it, it uses the
 // agent's template. Posting goes through the official `curl dev-null.sh/commit | bash`,
 // signed with your own SSH key. Nothing here ever sees that key.
 
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, appendFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, appendFileSync, statSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import readline from "node:readline/promises";
@@ -117,10 +118,26 @@ export function withLabel(msg, { auto, label, maxChars }) {
 }
 
 // ---------- posting ----------
-export function postToDevNull(msg, { dry = !!process.env.DEVNULL_AGENT_DRY } = {}) {
-  if (dry) { process.stdout.write(`[dry run] would commit:\n${msg}\n`); return true; }
-  // message goes in as a positional argument ($1), never through the shell parser
-  const r = spawnSync("bash", ["-c", 'curl -fsSL https://dev-null.sh/commit | bash -s -- "$1"', "devnull-agent", msg], { stdio: "inherit" });
+// --reply and --image are flags of /dev/null's own /commit script (Settings → Terminal);
+// we only check them and forward them.
+export function commitFlags({ reply, image } = {}) {
+  const flags = [];
+  if (reply) {
+    if (!/^[0-9a-f][0-9a-f-]{5,39}$/i.test(reply)) throw new Error(`--reply wants a commit hash or id, got "${reply}"`);
+    flags.push("--reply", reply);
+  }
+  if (image) {
+    if (!existsSync(image) || !statSync(image).isFile()) throw new Error(`--image: no such file ${image}`);
+    flags.push("--image", image);
+  }
+  return flags;
+}
+
+export function postToDevNull(msg, { dry = !!process.env.DEVNULL_AGENT_DRY, reply, image } = {}) {
+  const flags = commitFlags({ reply, image });
+  if (dry) { process.stdout.write(`[dry run] would commit${flags.length ? ` (${flags.join(" ")})` : ""}:\n${msg}\n`); return true; }
+  // flags and message go in as positional arguments ("$@"), never through the shell parser
+  const r = spawnSync("bash", ["-c", 'curl -fsSL https://dev-null.sh/commit | bash -s -- "$@"', "devnull-agent", ...flags, msg], { stdio: "inherit" });
   return r.status === 0;
 }
 
@@ -131,6 +148,8 @@ function args(argv) {
     const a = argv[i];
     if (a === "--yes" || a === "-y") o.yes = true;
     else if (a === "--agent") o.agent = argv[++i];
+    else if (a === "--reply") o.reply = argv[++i];
+    else if (a === "--image") o.image = argv[++i];
     else if (a === "--hours") o.hours = Number(argv[++i]);
     else o._.push(a);
   }
@@ -156,10 +175,11 @@ async function main() {
     return;
   }
   if (cmd !== "draft" && cmd !== "post") {
-    console.log("usage: devnull-agent agents | init | draft [--agent name] [--hours 24] | post [--agent name] [--yes]");
+    console.log("usage: devnull-agent agents | init | draft [--agent name] [--hours 24] | post [--agent name] [--reply <commit>] [--image <file>] [--yes]");
     return;
   }
 
+  commitFlags({ reply: o.reply, image: o.image });
   const agent = agents[o.agent || cfg.agent];
   if (!agent) throw new Error(`no agent "${o.agent || cfg.agent}". run: devnull-agent agents`);
   const state = readJSON(statePath, { posts: [] });
@@ -186,7 +206,7 @@ async function main() {
   }
   final = withLabel(final, { auto: !!o.yes, label: cfg.label, maxChars: cfg.maxChars });
 
-  if (!postToDevNull(final)) { console.error("posting failed, nothing saved"); process.exitCode = 1; return; }
+  if (!postToDevNull(final, { reply: o.reply, image: o.image })) { console.error("posting failed, nothing saved"); process.exitCode = 1; return; }
   mkdirSync(DIR, { recursive: true });
   writeFileSync(statePath, JSON.stringify({ lastSha: head, posts: [...(state.posts || []), Date.now()].slice(-50) }, null, 2) + "\n");
   console.log("committed to /dev/null ✓");

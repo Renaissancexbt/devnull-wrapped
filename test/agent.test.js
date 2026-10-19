@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  loadAgents, validateAgent, summarize, templateDraft, withLabel, postsToday, aiDraft, gitShipped, postToDevNull, clip,
+  loadAgents, validateAgent, commitFlags, summarize, templateDraft, withLabel, postsToday, aiDraft, gitShipped, postToDevNull, clip,
 } from "../agent/devnull-agent.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -83,11 +83,23 @@ test("gitShipped reads real commits, skips noise, resumes from the last posted s
 test("posting passes the message as data: quotes, $() and backticks survive untouched", () => {
   const bin = mkdtempSync(join(tmpdir(), "dna-bin-")), out = join(bin, "posted.txt");
   // fake curl prints the "commit script"; bash -s runs it with the message as $1
-  writeFileSync(join(bin, "curl"), `#!/bin/sh\necho 'printf "%s" "$1" > ${out}'\n`); chmodSync(join(bin, "curl"), 0o755);
+  writeFileSync(join(bin, "curl"), `#!/bin/sh\necho 'printf "%s\\n" "$@" > ${out}'\n`); chmodSync(join(bin, "curl"), 0o755);
   const msg = `it's "done" $(rm -rf ~) \`whoami\` & ; | > $HOME`;
   const old = process.env.PATH; process.env.PATH = `${bin}:${old}`;
   try { assert.equal(postToDevNull(msg, { dry: false }), true); } finally { process.env.PATH = old; }
-  assert.equal(readFileSync(out, "utf8"), msg);
+  assert.equal(readFileSync(out, "utf8"), msg + "\n");
+});
+
+test("--reply and --image are checked and forwarded to the /commit script before the message", () => {
+  const bin = mkdtempSync(join(tmpdir(), "dna-bin-")), out = join(bin, "posted.txt"), img = join(bin, "card.png");
+  writeFileSync(img, "png");
+  writeFileSync(join(bin, "curl"), `#!/bin/sh\necho 'printf "%s\\n" "$@" > ${out}'\n`); chmodSync(join(bin, "curl"), 0o755);
+  const old = process.env.PATH; process.env.PATH = `${bin}:${old}`;
+  try { assert.equal(postToDevNull("follow-up", { dry: false, reply: "8d21928", image: img }), true); } finally { process.env.PATH = old; }
+  assert.equal(readFileSync(out, "utf8"), `--reply\n8d21928\n--image\n${img}\nfollow-up\n`);
+  assert.throws(() => commitFlags({ reply: "$(boom)" }), /commit hash/);
+  assert.throws(() => commitFlags({ image: "/nope/missing.png" }), /no such file/);
+  assert.deepEqual(commitFlags({}), []);
 });
 
 test("cli: auto post is drafted from git, labeled, then nothing new on the next run", () => {
