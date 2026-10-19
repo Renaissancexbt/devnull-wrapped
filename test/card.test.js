@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cleanName, stats, fmt, cardTree, missingTree } from "../lib/card.js";
+import { cleanName, stats, fmt, cardTree, missingTree, mentions, crewTree } from "../lib/card.js";
 import { badgeSVG } from "../api/badge.js";
 import uHandler from "../api/u.js";
 
@@ -100,4 +100,33 @@ test("share page: OG tags point at the card, input is escaped", async () => {
   assert.match(html, /url=https:\/\/wrapped\.test\/\?u=nunomaduro/);
   const evil = await uHandler(new Request("https://wrapped.test/api/u?u=%22%3E%3Cscript%3Ealert(1)%3C/script%3E")).text();
   assert.ok(!evil.includes("<script>"));
+});
+
+test("mentions: counts people once per commit, skips self, emails and links", () => {
+  const m = mentions([
+    commit({ body: "pairing with @alice and @alice again" }),
+    commit({ body: "@Alice @bob review pls" }),
+    commit({ body: "mail me at x@y.com, see https://x.com/@carol" }),
+    commit({ body: "talking to myself @dev" }),
+    commit({ body: "thanks @bob_" }),
+  ], "dev");
+  assert.deepEqual(m.map((x) => [x.username.toLowerCase(), x.n]), [["alice", 2], ["bob", 2]]);
+});
+
+test("crew card: podium for 1-3 members and an empty state", () => {
+  const walk = (n, f) => { f(n); const c = n.props && n.props.children; (Array.isArray(c) ? c : c ? [c] : []).forEach((k) => typeof k === "object" && walk(k, f)); };
+  const people = [{ username: "alice", n: 3 }, { username: "bob", n: 2 }, { username: "carol", n: 1 }];
+  for (let k = 0; k <= 3; k++) {
+    const tree = crewTree(user, people.slice(0, k), { host: "h" });
+    walk(tree, (n) => { if (Array.isArray(n.props.children)) assert.equal(n.props.style.display, "flex"); });
+    const json = JSON.stringify(tree);
+    assert.equal(json.includes("no crew yet"), k === 0);
+    if (k) assert.ok(json.includes("#1"));
+  }
+});
+
+test("share page: crew links get the crew card", async () => {
+  const html = await uHandler(new Request("https://wrapped.test/api/u?u=dev&kind=crew")).text();
+  assert.match(html, /og:image" content="https:\/\/wrapped\.test\/api\/og\?u=dev&amp;kind=crew/);
+  assert.match(html, /@dev&#39;s \/dev\/null crew/);
 });

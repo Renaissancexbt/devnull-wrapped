@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.4.0 — 2026-10-19
+- **My crew**: the three people you @mention most, as a podium card at `/crew/<name>` with its own link preview, plus a ready-to-post text that tags them.
+
 ## 0.3.0 — 2026-10-18
 - README badge: `/badge/<name>` serves a shields-style SVG with commits and stars; the site has a button that copies the markdown.
 - Tests for stats, personas, card layout, badge and share page (`node --test`), run in CI on every push.

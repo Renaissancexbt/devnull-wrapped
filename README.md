@@ -48,6 +48,14 @@ lib/card.js  fetch + stats + card layout, shared by both
 
 Deploy: import the repo on Vercel, no settings needed.
 
+## Your crew
+
+**My crew** finds the three people you @mention most in your commits (checked against /dev/null so typos
+drop out) and makes a podium card for them. Share `/crew/<name>` and the card shows up under the post.
+Tag your crew, they make theirs.
+
+/dev/null's API has star counts but not who starred, so "your people" means who you talk to.
+
 ## README badge
 
 Show your /dev/null stats on your GitHub profile:
